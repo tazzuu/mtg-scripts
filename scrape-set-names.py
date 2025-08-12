@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from html.parser import HTMLParser
 from urllib.request import urlopen
+import json
 
 # get the MTG Set Names and their three-letter codes from Wikipedia
 # alternate URL; https://web.archive.org/web/20250812090737/https://en.wikipedia.org/wiki/List_of_Magic:_The_Gathering_sets
@@ -168,55 +169,8 @@ def build_set_mapping():
 def main():
     # Build mapping from Wikipedia
     set_name_to_code = build_set_mapping()
-    print(set_name_to_code)
+    print(json.dumps(set_name_to_code, indent=4))
 
-    # # Add/override any manual mappings here if you like:
-    # # set_name_to_code["Duskmourn House of Horror"] = "dsk"
-
-    # reader = csv.DictReader(sys.stdin)
-
-    # fieldnames = [
-    #     "Count", "Tradelist Count", "Name", "Edition", "Condition", "Language",
-    #     "Foil", "Tags", "Last Modified", "Collector Number", "Alter", "Proxy", "Purchase Price"
-    # ]
-    # writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
-    # writer.writeheader()
-
-    # for row in reader:
-    #     # Last Modified
-    #     date_added = (row.get("date_added") or "").strip()
-    #     if date_added:
-    #         try:
-    #             dt = datetime.fromisoformat(date_added)
-    #             last_modified = dt.strftime("%Y-%m-%d %H:%M:%S.%f")
-    #         except ValueError:
-    #             last_modified = date_added  # pass through if odd format
-    #     else:
-    #         last_modified = ""
-
-    #     # Edition (map full set name to code; fallback to set_name)
-    #     set_name = (row.get("set_name") or "").strip()
-    #     edition = set_name_to_code.get(set_name, set_name)
-
-    #     # Collector Number (strip leading '#')
-    #     collector_number = (row.get("discriminator") or "").lstrip("#")
-
-    #     out = {
-    #         "Count": row.get("quantity", ""),
-    #         "Tradelist Count": row.get("quantity", ""),
-    #         "Name": row.get("product_name", ""),
-    #         "Edition": edition,
-    #         "Condition": row.get("grade_subtype", ""),
-    #         "Language": "English",
-    #         "Foil": "",
-    #         "Tags": "",
-    #         "Last Modified": last_modified,
-    #         "Collector Number": collector_number,
-    #         "Alter": "False",
-    #         "Proxy": "False",
-    #         "Purchase Price": ""
-    #     }
-    #     writer.writerow(out)
 
 if __name__ == "__main__":
     main()
