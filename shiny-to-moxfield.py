@@ -152,14 +152,17 @@ class MoxfieldAppRow:
 
     @classmethod
     def from_shiny(cls, shiny: ShinyAppRow, exact_map: Dict[str, str], ci_map: Dict[str, str]) -> "MoxfieldAppRow":
+        is_foil = ""
+        if "foil" in shiny.rarity.lower():
+            is_foil = "foil"
         return cls(
             count=shiny.quantity,
             tradelist_count=shiny.quantity,
             name=shiny.product_name,
-            edition=_edition_code(shiny.set_name, exact_map, ci_map),
+            edition=_edition_code(shiny.set_name, exact_map, ci_map).lower(), # always use lowercase edition names for Moxfield
             condition=shiny.grade_subtype,
             language="English",
-            foil="",
+            foil=is_foil,
             tags="",
             last_modified=_format_last_modified(shiny.date_added),
             collector_number=_collector_number(shiny.discriminator),
