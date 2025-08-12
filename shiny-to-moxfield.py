@@ -3,6 +3,13 @@ import csv
 from datetime import datetime
 import sys
 
+"""
+Convert the Shiny app Export .csv into a format that can be imported by Moxfield (https://moxfield.com/collection)
+
+USAGE:
+
+./shiny-to-moxfield.py ../ShinyExport-fedfe0e51d11449ab31763ff769b09b1.csv > ../moxfield_tmp.csv
+"""
 
 # set_name_to_code = {
 #     # shiny set name : moxfield set name

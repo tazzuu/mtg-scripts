@@ -7,6 +7,9 @@ from datetime import datetime
 from html.parser import HTMLParser
 from urllib.request import urlopen
 
+# get the MTG Set Names and their three-letter codes from Wikipedia
+# alternate URL; https://web.archive.org/web/20250812090737/https://en.wikipedia.org/wiki/List_of_Magic:_The_Gathering_sets
+
 WIKI_URL = "https://en.wikipedia.org/wiki/List_of_Magic:_The_Gathering_sets"
 
 # --- tiny HTML -> text helper -------------------------------------------------

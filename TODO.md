@@ -1,0 +1,5 @@
+- fix missing fields for moxfield csv
+- get Foil's to be recognized for Moxfield csv
+- tweak set names for Moxfield and Shiny
+- figure out why some rows do not get imported into Moxfield and fix them
+- output the scraped set names in JSON format
