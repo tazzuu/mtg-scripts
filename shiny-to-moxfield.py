@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import csv
-from datetime import datetime
 import sys
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Dict, Any, List, Optional
 
 """
 Convert the Shiny app Export .csv into a format that can be imported by Moxfield (https://moxfield.com/collection)
@@ -10,11 +12,6 @@ USAGE:
 
 ./shiny-to-moxfield.py ../ShinyExport-fedfe0e51d11449ab31763ff769b09b1.csv > ../moxfield_tmp.csv
 """
-
-# set_name_to_code = {
-#     # shiny set name : moxfield set name
-#     "Duskmourn House of Horror": "dsk",
-# }
 
 set_name_to_code = {
     'Limited Edition Alpha': 'LEA',
@@ -301,55 +298,189 @@ set_name_to_code = {
     'Tempest Remastered': 'TPR'}
 
 
-def run(input_file: str):
-    # output
-    fieldnames = [
-        "Count", "Tradelist Count", "Name", "Edition", "Condition", "Language",
-        "Foil", "Tags", "Last Modified", "Collector Number", "Alter", "Proxy", "Purchase Price"
-    ]
-    writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
+# --- Output CSV schema ---------------------------------------------------------
+MOXFIELD_FIELDS: List[str] = [
+    "Count",
+    "Tradelist Count",
+    "Name",
+    "Edition",
+    "Condition",
+    "Language",
+    "Foil",
+    "Tags",
+    "Last Modified",
+    "Collector Number",
+    "Alter",
+    "Proxy",
+    "Purchase Price",
+]
+
+
+# --- Helpers -------------------------------------------------------------------
+def _format_last_modified(date_str: str) -> str:
+    """
+    Convert input ISO-like strings to 'YYYY-MM-DD HH:MM:SS.ssssss'.
+    Falls back to the original string on parse failure.
+    Accepts 'Z' (UTC) suffix and timezone offsets.
+    """
+    if not date_str:
+        return ""
+
+    s = date_str.strip()
+    try:
+        # Allow trailing Z
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = datetime.fromisoformat(s)
+        # Normalize to naive (no tz) but preserve wall-clock value
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+    except Exception:
+        # Best effort: pass through
+        return date_str
+
+
+def _collector_number(discriminator: str) -> str:
+    return (discriminator or "").lstrip("#").strip()
+
+
+def _edition_code(set_name: str, mapping: Dict[str, str]) -> str:
+    name = (set_name or "").strip()
+    return mapping.get(name, name)  # fallback to original name if unknown
+
+
+# --- Domain row models ---------------------------------------------------------
+@dataclass(frozen=True)
+class ShinyAppRow:
+    """
+    Represents one input row from the 'Shiny App' CSV.
+    Construct directly from the csv.DictReader row.
+    """
+    id: str
+    product_name: str
+    set_name: str
+    brand_name: str
+    discriminator: str
+    rarity: str
+    quantity: str
+    value_total: str
+    value_per_unit: str
+    value_currency: str
+    paid_total: str
+    paid_per_unit: str
+    paid_currency: str
+    grade_type: str
+    grade_subtype: str
+    group_name: str
+    group_wishlist: str
+    tcg_player_id: str
+    price_charting_id: str
+    card_market_id: str
+    date_added: str
+    tag: str
+
+    @classmethod
+    def from_csv_row(cls, row: Dict[str, Any]) -> "ShinyAppRow":
+        # Use .get for resilience; coerce to str or "" to avoid KeyErrors
+        g = lambda k: "" if row.get(k) is None else str(row.get(k))
+        return cls(
+            id=g("id"),
+            product_name=g("product_name"),
+            set_name=g("set_name"),
+            brand_name=g("brand_name"),
+            discriminator=g("discriminator"),
+            rarity=g("rarity"),
+            quantity=g("quantity"),
+            value_total=g("value_total"),
+            value_per_unit=g("value_per_unit"),
+            value_currency=g("value_currency"),
+            paid_total=g("paid_total"),
+            paid_per_unit=g("paid_per_unit"),
+            paid_currency=g("paid_currency"),
+            grade_type=g("grade_type"),
+            grade_subtype=g("grade_subtype"),
+            group_name=g("group_name"),
+            group_wishlist=g("group_wishlist"),
+            tcg_player_id=g("tcg_player_id"),
+            price_charting_id=g("price_charting_id"),
+            card_market_id=g("card_market_id"),
+            date_added=g("date_added"),
+            tag=g("tag"),
+        )
+
+
+@dataclass(frozen=True)
+class MoxfieldAppRow:
+    """
+    Represents one output row for the Moxfield CSV format.
+    Build from a ShinyAppRow plus any mapping/config you need.
+    """
+    count: str
+    tradelist_count: str
+    name: str
+    edition: str
+    condition: str
+    language: str
+    foil: str
+    tags: str
+    last_modified: str
+    collector_number: str
+    alter: str
+    proxy: str
+    purchase_price: str
+
+    @classmethod
+    def from_shiny(cls, shiny: ShinyAppRow, mapping: Dict[str, str]) -> "MoxfieldAppRow":
+        return cls(
+            count=shiny.quantity,
+            tradelist_count=shiny.quantity,
+            name=shiny.product_name,
+            edition=_edition_code(shiny.set_name, mapping),
+            condition=shiny.grade_subtype,  # e.g. Near Mint
+            language="English",
+            foil="",               # adjust if you derive foil from tags/names
+            tags="",               # populate if you want to carry tags/group
+            last_modified=_format_last_modified(shiny.date_added),
+            collector_number=_collector_number(shiny.discriminator),
+            alter="False",
+            proxy="False",
+            purchase_price="",     # or shiny.paid_per_unit if you prefer
+        )
+
+    def to_csv_dict(self) -> Dict[str, str]:
+        """
+        Return a dict ready for csv.DictWriter with the expected field names.
+        """
+        return {
+            "Count": self.count,
+            "Tradelist Count": self.tradelist_count,
+            "Name": self.name,
+            "Edition": self.edition,
+            "Condition": self.condition,
+            "Language": self.language,
+            "Foil": self.foil,
+            "Tags": self.tags,
+            "Last Modified": self.last_modified,
+            "Collector Number": self.collector_number,
+            "Alter": self.alter,
+            "Proxy": self.proxy,
+            "Purchase Price": self.purchase_price,
+        }
+
+def main(fin, stdout) -> int:
+    reader = csv.DictReader(fin)
+    writer = csv.DictWriter(stdout, fieldnames=MOXFIELD_FIELDS, quoting=csv.QUOTE_ALL)
     writer.writeheader()
 
-    # input
-    fin = open(input_file)
-    reader = csv.DictReader(fin)
     for row in reader:
-        # Last Modified
-        date_added = (row.get("date_added") or "").strip()
-        if date_added:
-            try:
-                dt = datetime.fromisoformat(date_added)
-                last_modified = dt.strftime("%Y-%m-%d %H:%M:%S.%f")
-            except ValueError:
-                last_modified = date_added  # pass through if odd format
-        else:
-            last_modified = ""
+        shiny = ShinyAppRow.from_csv_row(row)
+        mox = MoxfieldAppRow.from_shiny(shiny, set_name_to_code)
+        writer.writerow(mox.to_csv_dict())
 
-        # Edition (map full set name to code; fallback to set_name)
-        set_name = (row.get("set_name") or "").strip()
-        edition = set_name_to_code.get(set_name, set_name)
-
-        # Collector Number (strip leading '#')
-        collector_number = (row.get("discriminator") or "").lstrip("#")
-
-        out = {
-            "Count": row.get("quantity", ""),
-            "Tradelist Count": row.get("quantity", ""),
-            "Name": row.get("product_name", ""),
-            "Edition": edition,
-            "Condition": row.get("grade_subtype", ""),
-            "Language": "English",
-            "Foil": "",
-            "Tags": "",
-            "Last Modified": last_modified,
-            "Collector Number": collector_number,
-            "Alter": "False",
-            "Proxy": "False",
-            "Purchase Price": ""
-        }
-        writer.writerow(out)
-
+    return 0
 
 if __name__ == "__main__":
     input_file = sys.argv[1]
-    run(input_file)
+    fin = open(input_file)
+    sys.exit(main(fin, sys.stdout))
