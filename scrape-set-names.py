@@ -11,6 +11,9 @@ import json
 # get the MTG Set Names and their three-letter codes from Wikipedia
 # alternate URL; https://web.archive.org/web/20250812090737/https://en.wikipedia.org/wiki/List_of_Magic:_The_Gathering_sets
 
+# SEE ALSO: https://gatherer.wizards.com/sets -> maybe there is an API we can get the list from here instead
+# SEE ALSO: https://scryfall.com/docs/api/sets -> maybe easier to get the set ID's from here instead
+
 WIKI_URL = "https://en.wikipedia.org/wiki/List_of_Magic:_The_Gathering_sets"
 
 # --- tiny HTML -> text helper -------------------------------------------------
