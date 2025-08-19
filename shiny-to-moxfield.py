@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 import csv
 import sys
 import json
@@ -163,7 +164,7 @@ class MoxfieldAppRow:
         return cls(
             count=shiny.quantity,
             tradelist_count=shiny.quantity,
-            name=shiny.product_name,
+            name=clean_name(shiny.product_name),
             edition=_edition_code(shiny.set_name, exact_map, ci_map).lower(), # always use lowercase edition names for Moxfield
             condition=shiny.grade_subtype,
             language="English",
@@ -200,6 +201,16 @@ def process(reader: csv.DictReader, writer: csv.DictWriter, exact_map: Dict[str,
         shiny = ShinyAppRow.from_csv_row(row)
         mox = MoxfieldAppRow.from_shiny(shiny, exact_map, ci_map)
         writer.writerow(mox.to_csv_dict())
+
+def clean_name(name: str) -> str:
+    # remove trailing parenthesis;
+    # "Thornbite Staff (White Border)"
+    new_name = re.sub('\(.*\)', '', name)
+    # remove trailing descriptors
+    # "Mountain - Full Art"
+    new_name = re.sub(' - Full Art$', '', new_name)
+    new_name = re.sub(' - JP Full Art$', '', new_name)
+    return new_name.strip()
 
 # --- CLI -----------------------------------------------------------------------
 def parse_args(argv: List[str]) -> argparse.Namespace:
