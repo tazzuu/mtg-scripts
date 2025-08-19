@@ -210,6 +210,9 @@ def clean_name(name: str) -> str:
     # "Mountain - Full Art"
     new_name = re.sub(' - Full Art$', '', new_name)
     new_name = re.sub(' - JP Full Art$', '', new_name)
+    # catch some special cards with alternate names embedded
+    # Anguirus, Armored Killer - Gemrazer
+    new_name = re.sub('^.* - ', '', new_name)
     return new_name.strip()
 
 # --- CLI -----------------------------------------------------------------------
