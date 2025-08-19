@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import csv
 import sys
 import json
@@ -6,6 +7,10 @@ import argparse
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Tuple
+
+this_file_path = os.path.realpath(__file__)
+this_dir_path = os.path.dirname(this_file_path)
+default_sets_json = os.path.join(this_dir_path, "mtg_sets.json")
 
 # --- Output CSV schema ---------------------------------------------------------
 MOXFIELD_FIELDS: List[str] = [
@@ -200,7 +205,7 @@ def process(reader: csv.DictReader, writer: csv.DictWriter, exact_map: Dict[str,
 def parse_args(argv: List[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Convert ShinyApp CSV rows to Moxfield CSV format.")
     p.add_argument("input", help="Path to input CSV file (use '-' for stdin)")
-    p.add_argument("--sets", default="mtg_sets.json", help="Path to JSON file with { 'Set Name': 'setcode', ... }")
+    p.add_argument("--sets", default=default_sets_json, help="Path to JSON file with { 'Set Name': 'setcode', ... }")
     return p.parse_args(argv)
 
 def main() -> int:
