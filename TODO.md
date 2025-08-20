@@ -1,3 +1,4 @@
+- fix the set names in the Deck output txt
 - ~~fix missing fields for moxfield csv~~
 - ~~tweak set names for Moxfield and Shiny~~
 - ~~figure out why some rows do not get imported into Moxfield and fix them~~

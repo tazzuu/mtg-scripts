@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Tuple
 this_file_path = os.path.realpath(__file__)
 this_dir_path = os.path.dirname(this_file_path)
 default_sets_json = os.path.join(this_dir_path, "mtg_sets.json")
+default_output_filename = "moxfield-converted-collection.csv"
 
 # --- Output CSV schema ---------------------------------------------------------
 MOXFIELD_FIELDS: List[str] = [
@@ -156,6 +157,8 @@ class MoxfieldAppRow:
     proxy: str
     purchase_price: str
 
+    group_name: str
+
     @classmethod
     def from_shiny(cls, shiny: ShinyAppRow, exact_map: Dict[str, str], ci_map: Dict[str, str]) -> "MoxfieldAppRow":
         is_foil = ""
@@ -175,6 +178,7 @@ class MoxfieldAppRow:
             alter="False",
             proxy="False",
             purchase_price="",
+            group_name = shiny.group_name
         )
 
     def to_csv_dict(self) -> Dict[str, str]:
@@ -194,12 +198,36 @@ class MoxfieldAppRow:
             "Purchase Price": self.purchase_price,
         }
 
+    def to_deck_txt(self) -> str:
+        parts = [
+            self.count,
+            self.name,
+            "(" + self.edition.upper()  + ")",
+            self.collector_number
+        ]
+        if self.foil != "":
+            parts.append("*F*")
+        return " ".join(parts)
+
+    def make_deck_filename(self) -> str:
+        filename = "deck_" + self.group_name + ".txt"
+        filename = re.sub(r"[^A-Za-z0-9._-]+", "_", filename)
+        return filename
+
 # --- Core processing -----------------------------------------------------------
 def process(reader: csv.DictReader, writer: csv.DictWriter, exact_map: Dict[str, str], ci_map: Dict[str, str]) -> None:
+    decks_created = set()
     writer.writeheader()
     for row in reader:
         shiny = ShinyAppRow.from_csv_row(row)
         mox = MoxfieldAppRow.from_shiny(shiny, exact_map, ci_map)
+        deck_filename = mox.make_deck_filename()
+        # clear the file contents for writing
+        if deck_filename not in decks_created:
+            with open(deck_filename, "w") as _:
+                pass
+            decks_created.add(deck_filename)
+        append_line_to_file(mox.make_deck_filename(), mox.to_deck_txt())
         writer.writerow(mox.to_csv_dict())
 
 def clean_name(name: str) -> str:
@@ -215,6 +243,10 @@ def clean_name(name: str) -> str:
     new_name = re.sub('^.* - ', '', new_name)
     return new_name.strip()
 
+def append_line_to_file(filename: str, line: str):
+    with open(filename, 'a') as fout:
+        fout.write(line + '\n')
+
 # --- CLI -----------------------------------------------------------------------
 def parse_args(argv: List[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Convert ShinyApp CSV rows to Moxfield CSV format.")
@@ -226,7 +258,10 @@ def main() -> int:
     args = parse_args(sys.argv[1:])
     exact_map, ci_map = load_set_mapping(args.sets)
 
-    writer = csv.DictWriter(sys.stdout, fieldnames=MOXFIELD_FIELDS, quoting=csv.QUOTE_ALL)
+    # writer = csv.DictWriter(sys.stdout, fieldnames=MOXFIELD_FIELDS, quoting=csv.QUOTE_ALL)
+    output_filename = default_output_filename
+    fout = open(output_filename, "w")
+    writer = csv.DictWriter(fout, fieldnames=MOXFIELD_FIELDS, quoting=csv.QUOTE_ALL)
 
     if args.input == "-":
         reader = csv.DictReader(sys.stdin)
