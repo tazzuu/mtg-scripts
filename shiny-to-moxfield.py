@@ -202,8 +202,11 @@ class MoxfieldAppRow:
         parts = [
             self.count,
             self.name,
-            "(" + self.edition.upper()  + ")",
-            self.collector_number
+            # "(" +
+            # "" +
+            # # self.edition.upper()  + // TODO: need to get the Set labels to match what Moxfield wants for this format
+            # ")",
+            # self.collector_number
         ]
         if self.foil != "":
             parts.append("*F*")
@@ -240,6 +243,9 @@ def clean_name(name: str) -> str:
     new_name = re.sub(' - JP Full Art$', '', new_name)
     # catch some special cards with alternate names embedded
     # Anguirus, Armored Killer - Gemrazer
+    # Godzilla, Doom Inevitable - Yidaro, Wandering Monster
+    # Godzilla, King of the Monsters - Zilortha, Strength Incarnate
+    # Godzilla, Primeval Champion - Titanoth Rex
     new_name = re.sub('^.* - ', '', new_name)
     return new_name.strip()
 
