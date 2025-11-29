@@ -32,6 +32,11 @@ MOXFIELD_FIELDS: List[str] = [
     "Purchase Price",
 ]
 
+SIMPLE_FIELDNAMES = [
+    "Count",
+    "Name",
+    "Proxy"
+]
 # --- Helpers -------------------------------------------------------------------
 def _format_last_modified(date_str: str) -> str:
     if not date_str:
@@ -223,13 +228,39 @@ class MoxfieldAppRow:
         filename = re.sub(r"[^A-Za-z0-9._-]+", "_", filename)
         return filename
 
+# make a simplified version that is just the first three columns
+@dataclass(frozen=True)
+class MoxfieldSimpleRow:
+    count: str
+    name: str
+    proxy: str
+
+    @classmethod
+    def from_MoxfieldAppRow(cls, shiny: MoxfieldAppRow) -> "MoxfieldSimpleRow":
+        return cls(count=shiny.count,name=shiny.name,proxy=shiny.proxy)
+
+    def to_csv_dict(self) -> Dict[str, str]:
+        return {
+            "Count": self.count,
+            "Proxy": self.proxy,
+            "Name": self.name
+            }
+
 # --- Core processing -----------------------------------------------------------
-def process(reader: csv.DictReader, writer: csv.DictWriter, exact_map: Dict[str, str], ci_map: Dict[str, str]) -> None:
+def process(
+        reader: csv.DictReader,
+        writer: csv.DictWriter,
+        exact_map: Dict[str, str],
+        ci_map: Dict[str, str],
+        simple_writer: csv.DictWriter
+        ) -> None:
     decks_created = set()
     writer.writeheader()
+    simple_writer.writeheader()
     for row in reader:
         shiny = ShinyAppRow.from_csv_row(row)
         mox = MoxfieldAppRow.from_shiny(shiny, exact_map, ci_map)
+        simpleMoxRow = MoxfieldSimpleRow.from_MoxfieldAppRow(mox)
         deck_filename = mox.make_deck_filename()
         # clear the file contents for writing
         if deck_filename not in decks_created:
@@ -238,6 +269,7 @@ def process(reader: csv.DictReader, writer: csv.DictWriter, exact_map: Dict[str,
             decks_created.add(deck_filename)
         append_line_to_file(mox.make_deck_filename(), mox.to_deck_txt())
         writer.writerow(mox.to_csv_dict())
+        simple_writer.writerow(simpleMoxRow.to_csv_dict())
 
 def clean_name(name: str) -> str:
     # remove trailing parenthesis;
@@ -275,13 +307,16 @@ def main() -> int:
     fout = open(output_filename, "w")
     writer = csv.DictWriter(fout, fieldnames=MOXFIELD_FIELDS, quoting=csv.QUOTE_ALL)
 
+    simple_fout = open("collection_simple.tsv", "w")
+    simple_writer = csv.DictWriter(simple_fout, fieldnames=SIMPLE_FIELDNAMES, delimiter= '\t')
+
     if args.input == "-":
         reader = csv.DictReader(sys.stdin)
-        process(reader, writer, exact_map, ci_map)
+        process(reader, writer, exact_map, ci_map, simple_writer)
     else:
         with open(args.input, "r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            process(reader, writer, exact_map, ci_map)
+            process(reader, writer, exact_map, ci_map, simple_writer)
 
     return 0
 
